@@ -4,6 +4,8 @@ import json
 import tkinter as tk
 from tkinter import ttk, messagebox
 import vosk
+import pyaudio
+
 # from  RPi_Robot_Hat_Lib import RobotController
 
 
@@ -372,21 +374,47 @@ class CalibrationWindow:
             messagebox.showinfo("Reset Complete", "Calibration reset to defaults. Please reopen calibration window.")
 
 
-class Trainer:
-    """GUI application for Vosk voice training."""
+import threading
+
+class VoiceRecognition:
+    """GUI application for Vosk voice training and robot control."""
     
     def __init__(self, master):
         self.master = master
         self.training_keywords = MOVEMENT_TRAINING_KEYWORDS
+        self.is_listening = False
+        self.listening_thread = None
         
         # Initialize components
         self.model_checker = VoskModelChecker()
+        if not self.model_checker.check_model():
+            messagebox.showerror("Error", "Vosk model not available. Exiting.")
+            self.master.quit()
+            return
+            
         self.calibration = CalibrationManager()
-        self.movement = Movement(self.calibration)
+        self.robot = RobotController(self.calibration)
+        
+        # Create a grammar from the training keywords for focused recognition
+        all_keywords = [keyword for keywords in self.training_keywords.values() for keyword in keywords]
+        grammar = json.dumps(all_keywords)
+
+        # Initialize Vosk recognizer with the specific grammar
+        self.recognizer = vosk.KaldiRecognizer(self.model_checker.model, 16000, grammar)
+        
+        # Initialize PyAudio
+        self.p = pyaudio.PyAudio()
+        self.stream = self.p.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=16000,
+            input=True,
+            frames_per_buffer=8192
+        )
         
         # Setup window
-        self.master.title("Vosk Robot Trainer")
-        self.master.geometry("400x300")
+        self.master.title("Vosk Robot Controller")
+        self.master.geometry("400x350")
         
         # Initialize UI components
         self._create_widgets()
@@ -399,10 +427,27 @@ class Trainer:
         # Title
         self.label = tk.Label(
             self.master, 
-            text="🤖 Vosk Robot Trainer",
+            text="🤖 Vosk Robot Controller",
             font=("Arial", 14, "bold")
         )
-        self.label.pack(pady=20)
+        self.label.pack(pady=10)
+
+        # Status Label
+        self.status_label = tk.Label(
+            self.master, 
+            text="Status: Idle",
+            font=("Arial", 12)
+        )
+        self.status_label.pack(pady=5)
+
+        # Recognized Text Label
+        self.recognized_text_label = tk.Label(
+            self.master, 
+            text="",
+            font=("Arial", 10, "italic"),
+            fg="gray"
+        )
+        self.recognized_text_label.pack(pady=(0, 10))
         
         # Button frame
         button_frame = tk.Frame(self.master)
@@ -421,18 +466,18 @@ class Trainer:
         )
         self.calibration_button.pack(pady=5)
         
-        # Start Training button
-        self.train_button = tk.Button(
+        # Start/Stop Recognition button
+        self.recognition_button = tk.Button(
             button_frame, 
-            text="🎤 Start Training",
-            command=self.start_training,
+            text="🎤 Start Recognition",
+            command=self.toggle_recognition,
             width=15,
             height=2,
             bg="#4CAF50",
             fg="white",
             font=("Arial", 10, "bold")
         )
-        self.train_button.pack(pady=5)
+        self.recognition_button.pack(pady=5)
 
         # Quit button
         self.quit_button = tk.Button(
@@ -449,11 +494,78 @@ class Trainer:
     
     def open_calibration(self):
         """Open calibration window."""
-        CalibrationWindow(self.master, self.calibration, self.movement)
-    
-    def start_training(self):
-        """Start voice training mode."""
-        messagebox.showinfo("Training Mode", "Voice training will start soon!\n(Feature coming soon)")
+        if self.is_listening:
+            messagebox.showwarning("Warning", "Please stop recognition before opening calibration.")
+            return
+        CalibrationWindow(self.master, self.calibration, self.robot)
+
+    def toggle_recognition(self):
+        """Start or stop voice recognition."""
+        if self.is_listening:
+            self.stop_recognition()
+        else:
+            self.start_recognition()
+
+    def start_recognition(self):
+        """Start voice recognition in a separate thread."""
+        self.is_listening = True
+        self.status_label.config(text="Status: Listening...")
+        self.recognition_button.config(text="🛑 Stop Recognition", bg="#ff9800")
+        
+        self.listening_thread = threading.Thread(target=self.listen)
+        self.listening_thread.daemon = True
+        self.listening_thread.start()
+        print("✓ Voice recognition started.")
+
+    def stop_recognition(self):
+        """Stop voice recognition."""
+        self.is_listening = False
+        # The thread will stop on its own since the loop condition `self.is_listening` will be false
+        print("\nStopping voice recognition...")
+        self.status_label.config(text="Status: Idle")
+        self.recognition_button.config(text="🎤 Start Recognition", bg="#4CAF50")
+
+    def listen(self):
+        """Listen for voice commands continuously."""
+        self.stream.start_stream()
+        while self.is_listening:
+            data = self.stream.read(4096, exception_on_overflow=False)
+            if self.recognizer.AcceptWaveform(data):
+                result = json.loads(self.recognizer.Result())
+                text = result.get('text', '').lower()
+                if text:
+                    # Update GUI in the main thread
+                    self.master.after(0, self.update_recognized_text, text)
+                    self.process_command(text)
+        self.stream.stop_stream()
+        print("Voice recognition stopped.")
+
+    def update_recognized_text(self, text):
+        """Update the recognized text label."""
+        self.recognized_text_label.config(text=f"Heard: \"{text}\"")
+
+    def process_command(self, text):
+        """Process the recognized text and command the robot."""
+        for command, keywords in MOVEMENT_TRAINING_KEYWORDS.items():
+            if text in keywords:
+                print(f"✓ Command recognized: '{text}' -> {command.upper()}")
+                if command == "forward":
+                    self.robot.forward()
+                elif command == "backward":
+                    self.robot.backward()
+                elif command == "left":
+                    self.robot.left()
+                elif command == "right":
+                    self.robot.right()
+                elif command == "horizontal_left":
+                    self.robot.horizontal_left()
+                elif command == "horizontal_right":
+                    self.robot.horizontal_right()
+                elif command == "stop":
+                    self.robot.stop()
+                elif command in ["pause", "resume"]:
+                    pass
+                return
 
     def _display_keywords(self):
         """Display training keywords in a formatted way."""
@@ -471,42 +583,60 @@ class Trainer:
 
     def quit(self):
         """Clean up and exit the application."""
+        if self.is_listening:
+            self.stop_recognition()
+        
+        # Wait for the listening thread to finish
+        if self.listening_thread and self.listening_thread.is_alive():
+            self.listening_thread.join(timeout=1.0)
+
+        self.stream.close()
+        self.p.terminate()
         self.master.quit()
         self.master.destroy()
+        print("Application closed.")
 
-class Movement:
-    """Handles robot movement commands with calibration."""
-    
+
+# Placeholder for the actual robot controller library
+class RobotController:
+    """A placeholder class for the robot's movement controls."""
     def __init__(self, calibration_manager):
         self.calibration = calibration_manager
-    
+        print("Initialized placeholder RobotController.")
+
     def forward(self):
         speed = self.calibration.get_setting("motor_speed", "forward")
-        print(f"Moving forward at speed: {speed}")
-        
+        duration = self.calibration.get_setting("movement_duration", "default_duration")
+        print(f"Action: Move forward (speed: {speed}, duration: {duration})")
+
     def backward(self):
         speed = self.calibration.get_setting("motor_speed", "backward")
-        print(f"Moving backward at speed: {speed}")
-        
+        duration = self.calibration.get_setting("movement_duration", "default_duration")
+        print(f"Action: Move backward (speed: {speed}, duration: {duration})")
+
     def left(self):
         speed = self.calibration.get_setting("motor_speed", "turn_speed")
-        print(f"Turning left at speed: {speed}")
-        
+        duration = self.calibration.get_setting("movement_duration", "turn_duration")
+        print(f"Action: Turn left (speed: {speed}, duration: {duration})")
+
     def right(self):
         speed = self.calibration.get_setting("motor_speed", "turn_speed")
-        print(f"Turning right at speed: {speed}")
-        
+        duration = self.calibration.get_setting("movement_duration", "turn_duration")
+        print(f"Action: Turn right (speed: {speed}, duration: {duration})")
+
     def horizontal_left(self):
         speed = self.calibration.get_setting("motor_speed", "strafe_speed")
-        print(f"Strafing left at speed: {speed}")
-        
+        duration = self.calibration.get_setting("movement_duration", "default_duration")
+        print(f"Action: Strafe left (speed: {speed}, duration: {duration})")
+
     def horizontal_right(self):
         speed = self.calibration.get_setting("motor_speed", "strafe_speed")
-        print(f"Strafing right at speed: {speed}")
-        
+        duration = self.calibration.get_setting("movement_duration", "default_duration")
+        print(f"Action: Strafe right (speed: {speed}, duration: {duration})")
+
     def stop(self):
-        print("Stopping movement")
-    
+        print("Action: Stop")
+
     # Test methods for calibration
     def test_forward(self):
         print("🧪 Testing forward movement...")
@@ -524,19 +654,11 @@ class Movement:
         print("🧪 Testing strafe movement...")
         self.horizontal_left()
 
-
 def main():
     """Main entry point for the application."""
     try:
-        # Check and load Vosk model
-        checker = VoskModelChecker()
-        if not checker.check_model():
-            print("Failed to load model. Exiting...")
-            sys.exit(1)
-        
-        # Create and run GUI
         root = tk.Tk()
-        app = Trainer(root)
+        app = VoiceRecognition(root)
         root.mainloop()
         
     except Exception as e:

@@ -3,3 +3,4 @@
 vosk-model-small-en-us-0.15/
 __pycache__/
 .lgd-nfy0
+robot_calibration.json
