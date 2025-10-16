@@ -5,6 +5,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import vosk
 import pyaudio
+import subprocess
+import threading
 
 # from  RPi_Robot_Hat_Lib import RobotController
 
@@ -55,19 +57,29 @@ class VoskModelChecker:
             print("Model not found.")
             print("Checking internet connection...")
             
-            ping_result = os.system("ping -c 1 google.com > /dev/null 2>&1")
-            if ping_result != 0:
+            try:
+                subprocess.run(["ping", "-c", "1", "google.com"], check=True, capture_output=True)
+                print("Internet connection is available.")
+            except (subprocess.CalledProcessError, FileNotFoundError):
                 print("No internet connection. Please check your connection and try again.")
                 return False
             
-            print("Internet connection is available.")
             print("Downloading model...")
-            os.system("wget https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip -O model.zip")
-            os.system("unzip model.zip -d model")
-            os.system("rm model.zip")
-            print("Model downloaded and unpacked successfully.")
-            return True
-        
+            try:
+                subprocess.run(["wget", "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip", "-O", "model.zip"], check=True)
+                subprocess.run(["unzip", "model.zip", "-d", "model"], check=True)
+                subprocess.run(["rm", "model.zip"], check=True)
+                print("Model downloaded and unpacked successfully.")
+            except (subprocess.CalledProcessError, FileNotFoundError) as e:
+                print(f"Failed to download or unpack model: {e}")
+                return False
+            
+            # The model path needs to be updated to where unzip places it
+            model_path = "model/vosk-model-small-en-us-0.15"
+            if not os.path.exists(model_path):
+                print(f"Model directory not found at expected path: {model_path}")
+                return False
+
         self.model = vosk.Model(model_path)
         print("Model loaded successfully.")
         return True
@@ -373,8 +385,6 @@ class CalibrationWindow:
             self.window.destroy()
             messagebox.showinfo("Reset Complete", "Calibration reset to defaults. Please reopen calibration window.")
 
-
-import threading
 
 class VoiceRecognition:
     """GUI application for Vosk voice training and robot control."""
