@@ -108,10 +108,10 @@ class CalibrationManager:
         try:
             with open(self.config_file, 'w') as f:
                 json.dump(self.settings, f, indent=4)
-            print("✓ Calibration saved successfully")
+            print("Calibration saved successfully")
             return True
         except Exception as e:
-            print(f"✗ Error saving calibration: {e}")
+            print(f"Error saving calibration: {e}")
             return False
     
     def get_setting(self, category, key):
@@ -149,7 +149,7 @@ class CalibrationWindow:
         # Title
         title = tk.Label(
             self.window,
-            text="🤖 Robot Calibration Center",
+            text="Robot Calibration Center",
             font=("Arial", 16, "bold")
         )
         title.pack(pady=10)
@@ -179,7 +179,7 @@ class CalibrationWindow:
         
         tk.Button(
             button_frame,
-            text="💾 Save Calibration",
+            text="Save Calibration",
             command=self._save_calibration,
             bg="#4CAF50",
             fg="white",
@@ -189,7 +189,7 @@ class CalibrationWindow:
         
         tk.Button(
             button_frame,
-            text="🔄 Reset to Defaults",
+            text="Reset to Defaults",
             command=self._reset_calibration,
             bg="#FF9800",
             fg="white",
@@ -199,7 +199,7 @@ class CalibrationWindow:
         
         tk.Button(
             button_frame,
-            text="✖ Close",
+            text="Close",
             command=self.window.destroy,
             bg="#f44336",
             fg="white",
@@ -437,7 +437,7 @@ class VoiceRecognition:
         # Title
         self.label = tk.Label(
             self.master, 
-            text="🤖 Vosk Robot Controller",
+            text="Vosk Robot Controller",
             font=("Arial", 14, "bold")
         )
         self.label.pack(pady=10)
@@ -466,7 +466,7 @@ class VoiceRecognition:
         # Calibration button
         self.calibration_button = tk.Button(
             button_frame, 
-            text="⚙️ Calibration",
+            text="Calibration",
             command=self.open_calibration,
             width=15,
             height=2,
@@ -479,7 +479,7 @@ class VoiceRecognition:
         # Start/Stop Recognition button
         self.recognition_button = tk.Button(
             button_frame, 
-            text="🎤 Start Recognition",
+            text="Start Recognition",
             command=self.toggle_recognition,
             width=15,
             height=2,
@@ -492,7 +492,7 @@ class VoiceRecognition:
         # Quit button
         self.quit_button = tk.Button(
             button_frame, 
-            text="✖ Quit", 
+            text="Quit", 
             command=self.quit,
             width=15,
             height=2,
@@ -520,12 +520,12 @@ class VoiceRecognition:
         """Start voice recognition in a separate thread."""
         self.is_listening = True
         self.status_label.config(text="Status: Listening...")
-        self.recognition_button.config(text="🛑 Stop Recognition", bg="#ff9800")
+        self.recognition_button.config(text="Stop Recognition", bg="#ff9800")
         
         self.listening_thread = threading.Thread(target=self.listen)
         self.listening_thread.daemon = True
         self.listening_thread.start()
-        print("✓ Voice recognition started.")
+        print("Voice recognition started.")
 
     def stop_recognition(self):
         """Stop voice recognition."""
@@ -533,7 +533,7 @@ class VoiceRecognition:
         # The thread will stop on its own since the loop condition `self.is_listening` will be false
         print("\nStopping voice recognition...")
         self.status_label.config(text="Status: Idle")
-        self.recognition_button.config(text="🎤 Start Recognition", bg="#4CAF50")
+        self.recognition_button.config(text="Start Recognition", bg="#4CAF50")
 
     def listen(self):
         """Listen for voice commands continuously."""
@@ -558,7 +558,7 @@ class VoiceRecognition:
         """Process the recognized text and command the robot."""
         for command, keywords in MOVEMENT_TRAINING_KEYWORDS.items():
             if text in keywords:
-                print(f"✓ Command recognized: '{text}' -> {command.upper()}")
+                print(f"Command recognized: '{text}' -> {command.upper()}")
                 if command == "forward":
                     self.robot.forward()
                 elif command == "backward":
@@ -584,7 +584,7 @@ class VoiceRecognition:
         print("="*60)
         
         for command, synonyms in self.training_keywords.items():
-            print(f"\n📌 {command.upper()}")
+            print(f"\n{command.upper()}")
             print(f"   Synonyms: {', '.join(synonyms)}")
         
         print("\n" + "="*60)
@@ -649,19 +649,19 @@ class RobotController:
 
     # Test methods for calibration
     def test_forward(self):
-        print("🧪 Testing forward movement...")
+        print("Testing forward movement...")
         self.forward()
     
     def test_backward(self):
-        print("🧪 Testing backward movement...")
+        print("Testing backward movement...")
         self.backward()
     
     def test_turn(self):
-        print("🧪 Testing turn movement...")
+        print("Testing turn movement...")
         self.left()
     
     def test_strafe(self):
-        print("🧪 Testing strafe movement...")
+        print("Testing strafe movement...")
         self.horizontal_left()
 
 def main():
