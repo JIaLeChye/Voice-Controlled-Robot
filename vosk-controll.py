@@ -51,7 +51,7 @@ class VoskModelChecker:
 
     def check_model(self):
         """Check if Vosk model exists, download if necessary, and load it."""
-        model_path = "vosk-model-small-en-us-0.15"
+        model_path = "model/vosk-model-small-en-us-0.15"
         
         if not os.path.exists(model_path):
             print("Model not found.")
