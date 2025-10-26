@@ -1,4 +1,10 @@
 # !/usr/bin/env python3
+
+# RC stands for Robotic Controlled which means that this scripts has integrated robotic control
+# The library used is  RPi_Robot_Hat_Lib which is a custom made library for controlling robots using Raspberry Pi Robot Hat
+# Contact Cyton.io for more information about the library and hardware
+
+
 import os
 import sys
 import json
@@ -8,9 +14,8 @@ import vosk
 import pyaudio
 import subprocess
 import threading
-
-# from  RPi_Robot_Hat_Lib import RobotController
-
+from  RPi_Robot_Hat_Lib import RobotController
+import time 
 
 # Training keywords dictionary with synonyms for robot movements
 MOVEMENT_TRAINING_KEYWORDS = {
@@ -18,8 +23,8 @@ MOVEMENT_TRAINING_KEYWORDS = {
     "backward": ["backward", "back", "reverse", "move back", "go back"],
     "left": ["left", "turn left", "go left", "rotate left"],
     "right": ["right", "turn right", "go right", "rotate right"],
-    "horizontal_left": ["slide left", "strafe left", "shift left", "drift left"],
-    "horizontal_right": ["slide right", "strafe right", "shift right", "drift right"],
+    "horizontal_left": ["slide left", "strafe left", "shift left", "drift left", "horizontal left"],
+    "horizontal_right": ["slide right", "strafe right", "shift right", "drift right", "horizontal right"],
     "stop": ["stop", "halt", "freeze", "brake", "stay"],
     "pause": ["pause", "wait", "hold"],
     "resume": ["resume", "continue", "go"],
@@ -223,7 +228,7 @@ class CalibrationWindow:
             "motor_speed",
             "forward",
             0, 100,
-            lambda v: self.movement.test_forward()
+            lambda: self.movement.forward()
         )
         
         # Backward speed
@@ -233,7 +238,7 @@ class CalibrationWindow:
             "motor_speed",
             "backward",
             0, 100,
-            lambda v: self.movement.test_backward()
+            lambda: self.movement.backward()
         )
         
         # Turn speed
@@ -243,7 +248,7 @@ class CalibrationWindow:
             "motor_speed",
             "turn_speed",
             0, 100,
-            lambda v: self.movement.test_turn()
+            lambda: self.movement.turn()
         )
         
         # Strafe speed
@@ -253,7 +258,7 @@ class CalibrationWindow:
             "motor_speed",
             "strafe_speed",
             0, 100,
-            lambda v: self.movement.test_strafe()
+            lambda: self.movement.trafe()
         )
     
     def _create_voice_tab(self, parent):
@@ -313,7 +318,7 @@ class CalibrationWindow:
             "default_duration",
             0.1, 5.0,
             None,
-            resolution=0.1
+            resolution=1
         )
         
         # Turn duration
@@ -324,7 +329,7 @@ class CalibrationWindow:
             "turn_duration",
             0.1, 3.0,
             None,
-            resolution=0.1
+            resolution=1
         )
     
     def _create_slider(self, parent, label, category, key, min_val, max_val, test_callback, resolution=1.0):
@@ -404,7 +409,7 @@ class VoiceRecognition:
             return
             
         self.calibration = CalibrationManager()
-        self.robot = RobotController(self.calibration)
+        self.robot = MovementController(self.calibration)
         
         # Create a grammar from the training keywords for focused recognition
         all_keywords = [keyword for keywords in self.training_keywords.values() for keyword in keywords]
@@ -609,61 +614,90 @@ class VoiceRecognition:
 
 
 # Placeholder for the actual robot controller library
-class RobotController:
+class MovementController:
     """A placeholder class for the robot's movement controls."""
     def __init__(self, calibration_manager):
+        self.Robot = RobotController()
+        # self.speed = 50
         self.calibration = calibration_manager
         print("Initialized placeholder RobotController.")
 
     def forward(self):
+        
         speed = self.calibration.get_setting("motor_speed", "forward")
         duration = self.calibration.get_setting("movement_duration", "default_duration")
         print(f"Action: Move forward (speed: {speed}, duration: {duration})")
+        self.Robot.Forward(speed)
+        time.sleep(duration) 
+        self.Robot.stop()
 
+        
     def backward(self):
+
         speed = self.calibration.get_setting("motor_speed", "backward")
         duration = self.calibration.get_setting("movement_duration", "default_duration")
         print(f"Action: Move backward (speed: {speed}, duration: {duration})")
+        self.Robot.Backward(speed)
+        time.sleep(duration)
+        self.Robot.stop()
+        
 
     def left(self):
+        
         speed = self.calibration.get_setting("motor_speed", "turn_speed")
         duration = self.calibration.get_setting("movement_duration", "turn_duration")
         print(f"Action: Turn left (speed: {speed}, duration: {duration})")
+        self.Robot.turn_left(speed)
+        time.sleep(duration)
+        self.Robot.stop()
 
     def right(self):
+        
         speed = self.calibration.get_setting("motor_speed", "turn_speed")
         duration = self.calibration.get_setting("movement_duration", "turn_duration")
         print(f"Action: Turn right (speed: {speed}, duration: {duration})")
+        self.Robot.turn_right(speed)
+        time.sleep(duration)
+        self.Robot.stop()
 
     def horizontal_left(self):
+        
         speed = self.calibration.get_setting("motor_speed", "strafe_speed")
         duration = self.calibration.get_setting("movement_duration", "default_duration")
         print(f"Action: Strafe left (speed: {speed}, duration: {duration})")
+        self.Robot.Horizontal_Left(speed)
+        time.sleep(duration)
+        self.Robot.stop()
 
     def horizontal_right(self):
+        
         speed = self.calibration.get_setting("motor_speed", "strafe_speed")
         duration = self.calibration.get_setting("movement_duration", "default_duration")
         print(f"Action: Strafe right (speed: {speed}, duration: {duration})")
+        self.Robot.Horizontal_Right(speed)
+        time.sleep(duration)
+        self.Robot.stop()
 
     def stop(self):
+        self.Robot.stop()
         print("Action: Stop")
 
-    # Test methods for calibration
-    def test_forward(self):
-        print("Testing forward movement...")
-        self.forward()
+    # # Test methods for calibration
+    # def test_forward(self):
+    #     print("Testing forward movement...")
+    #     self.forward()
     
-    def test_backward(self):
-        print("Testing backward movement...")
-        self.backward()
+    # def test_backward(self):
+    #     print("Testing backward movement...")
+    #     self.backward()
     
-    def test_turn(self):
-        print("Testing turn movement...")
-        self.left()
+    # def test_turn(self):
+    #     print("Testing turn movement...")
+    #     self.left()
     
-    def test_strafe(self):
-        print("Testing strafe movement...")
-        self.horizontal_left()
+    # def test_strafe(self):
+    #     print("Testing strafe movement...")
+    #     self.horizontal_left()
 
 def main():
     """Main entry point for the application."""
